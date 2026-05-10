@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Background -->
+  <rect width="32" height="32" rx="6" fill="#000000"/>
+
+  <!-- Bold R letter -->
+  <g fill="#FFFFFF">
+    <!-- Vertical line -->
+    <rect x="8" y="6" width="3" height="20" rx="1.5"/>
+
+    <!-- Top curve (P part) -->
+    <path d="M 11 6 Q 18 6, 18 12 Q 18 16, 14 16 L 11 16" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- Diagonal leg -->
+    <path d="M 14 16 L 22 26" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>
