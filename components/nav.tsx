@@ -30,6 +30,12 @@ export function Nav() {
           >
             battle
           </Link>
+          <Link
+            href="/about"
+            className="hidden md:inline text-[14px] font-[500] text-ri-gray-500 hover:text-ri-black transition-colors duration-150"
+          >
+            about
+          </Link>
           {user && (
             <Link
               href="/history"
