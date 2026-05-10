@@ -1,57 +1,144 @@
 import { getAvatarUrl } from "@/lib/profile-utils";
 
-function firstString(...values: unknown[]) {
+function firstString(...values: unknown[]): string {
   for (const value of values) {
     if (typeof value === "string" && value.trim()) return value.trim();
   }
-
   return "";
 }
 
-function firstArray(...values: unknown[]) {
+function firstArray(...values: unknown[]): unknown[] {
   for (const value of values) {
     if (Array.isArray(value) && value.length > 0) return value;
   }
-
   return [];
 }
 
-function normalizeLinkedInData(raw: any, profileUrl: string) {
-  const data = raw?.data && typeof raw.data === "object" ? raw.data : raw;
+// Normalize a single experience entry — keep all descriptive content
+function normalizeExpItem(item: unknown): Record<string, unknown> {
+  if (typeof item === "string") return { title: item, description: item };
+  if (!item || typeof item !== "object") return {};
+  const d = item as Record<string, unknown>;
+  return {
+    title: firstString(d.title, d.position, d.role, d.jobTitle, d.job_title),
+    company: firstString(d.companyName, d.company, d.organization, d.organisation, d.employer, d.org, d.name),
+    description: firstString(d.description, d.summary, d.details, d.responsibilities, d.body, d.content),
+    duration: firstString(d.duration, d.tenure, d.period, d.timePeriod as string),
+    location: firstString(d.location, d.locationName),
+    employmentType: firstString(d.employmentType, d.type, d.contractType),
+    ...d,
+  };
+}
+
+// Normalize a single education entry
+function normalizeEduItem(item: unknown): Record<string, unknown> {
+  if (typeof item === "string") return { school: item, description: item };
+  if (!item || typeof item !== "object") return {};
+  const d = item as Record<string, unknown>;
+  return {
+    school: firstString(d.schoolName, d.school, d.institution, d.university, d.college, d.name),
+    degree: firstString(d.degreeName, d.degree, d.qualification, d.degreeType),
+    field: firstString(d.fieldOfStudy, d.field, d.major, d.subject, d.course),
+    description: firstString(d.description, d.activities, d.notes, d.summary, d.extracurriculars),
+    grade: firstString(d.grade, d.gpa, d.score, d.result),
+    ...d,
+  };
+}
+
+// Normalize a skill entry to always have a readable name
+function normalizeSkillItem(item: unknown): Record<string, unknown> {
+  if (typeof item === "string") return { name: item };
+  if (!item || typeof item !== "object") return {};
+  const d = item as Record<string, unknown>;
+  return {
+    name: firstString(d.name, d.skill, d.title, d.text, d.label),
+    endorsements: d.endorsements || d.endorsementCount || 0,
+    ...d,
+  };
+}
+
+// Normalize a project/publication/certification entry
+function normalizeProjectItem(item: unknown): Record<string, unknown> {
+  if (typeof item === "string") return { name: item, description: item };
+  if (!item || typeof item !== "object") return {};
+  const d = item as Record<string, unknown>;
+  return {
+    name: firstString(d.name, d.title, d.projectName),
+    description: firstString(d.description, d.summary, d.body, d.details, d.abstract),
+    url: firstString(d.url, d.link, d.projectUrl),
+    ...d,
+  };
+}
+
+function normalizeLinkedInData(raw: unknown, profileUrl: string) {
+  const data = (raw as Record<string, unknown>)?.data &&
+    typeof (raw as Record<string, unknown>).data === "object"
+    ? (raw as Record<string, unknown>).data as Record<string, unknown>
+    : raw as Record<string, unknown>;
+
   if (!data || typeof data !== "object") return null;
 
   const fullName = firstString(
-    data.fullName,
-    data.full_name,
-    data.name,
-    data.title,
+    data.fullName, data.full_name, data.name, data.title,
     [data.firstName, data.lastName].filter(Boolean).join(" "),
     [data.first_name, data.last_name].filter(Boolean).join(" ")
   );
   const headline = firstString(data.headline, data.head_line, data.tagline, data.subtitle, data.occupation);
   const avatar = getAvatarUrl(data);
-  const experience = firstArray(data.position, data.positions, data.experience, data.experiences, data.workExperience, data.jobs, data.employments);
-  const education = firstArray(data.education, data.educations, data.schools, data.school);
-  const skills = firstArray(data.skills, data.topSkills, data.skill, data.skillEndorsements);
-  const projects = firstArray(data.projects, data.project, data.certifications, data.publications);
+
+  // Extract the About / Summary section — most unique per-person signal
+  const summary = firstString(
+    data.summary, data.about, data.description, data.bio,
+    data.overview, data.profileSummary, data.profile_summary
+  );
+
+  // Normalize each entry deeply so descriptions are preserved
+  const rawExperience = firstArray(data.position, data.fullPositions, data.positions, data.experience, data.experiences, data.workExperience, data.jobs, data.employments);
+  const rawEducation = firstArray(data.education, data.educations, data.schools, data.school);
+  const rawSkills = firstArray(data.skills, data.topSkills, data.skill, data.skillEndorsements);
+  const rawProjects = firstArray(data.projects, data.project);
+  const rawCerts = firstArray(data.certifications, data.certification, data.licenses, data.licenseAndCertifications);
+  const rawPublications = firstArray(data.publications, data.publication);
+  const rawAwards = firstArray(data.honors, data.awards, data.honorsAndAwards, data.achievements);
+  const rawVolunteer = firstArray(data.volunteerExperiences, data.volunteer, data.volunteerWork, data.volunteering);
+  const rawLanguages = firstArray(data.languages, data.language);
+
+  const experience = rawExperience.map(normalizeExpItem);
+  const education = rawEducation.map(normalizeEduItem);
+  const skills = rawSkills.map(normalizeSkillItem);
+  const projects = [
+    ...rawProjects.map(normalizeProjectItem),
+    ...rawCerts.map(normalizeProjectItem),
+    ...rawPublications.map(normalizeProjectItem),
+    ...rawAwards.map(normalizeProjectItem),
+  ];
+  const volunteer = rawVolunteer.map(normalizeExpItem);
 
   if (!fullName && !headline && !avatar && experience.length === 0 && education.length === 0 && skills.length === 0) {
     return null;
   }
 
   return {
-    ...data,
     fullName,
     firstName: firstString(data.firstName, data.first_name, fullName.split(" ")[0]),
+    lastName: firstString(data.lastName, data.last_name),
     headline,
     avatar,
+    summary,
     profileUrl,
+    // Structured arrays with rich descriptions
     experience,
     education,
     skills,
     projects,
+    volunteer,
+    languages: rawLanguages,
+    // Extra signals
+    connectionCount: data.connectionCount || data.connections || data.followersCount || 0,
     university: firstString(data.university, data.school, data.schoolName),
-    source: data.source || "rapidapi-linkedin",
+    location: firstString(data.location, data.locationName, data.country, data.city),
+    website: firstString(data.website, data.websiteUrl, data.portfolioUrl),
+    source: "rapidapi-linkedin",
   };
 }
 
@@ -67,33 +154,24 @@ async function fetchFreshLinkedInProfile(profileUrl: string, signal: AbortSignal
   const response = await fetch(
     `https://fresh-linkedin-scraper-api.p.rapidapi.com/api/v1/user/profile?username=${encodeURIComponent(username)}`,
     {
-      method: "GET",
       headers: {
         "x-rapidapi-key": process.env.RAPIDAPI_KEY!,
         "x-rapidapi-host": "fresh-linkedin-scraper-api.p.rapidapi.com",
-        "Content-Type": "application/json",
       },
       signal,
     }
   );
 
-  const text = await response.text();
-  let data: any;
+  let data: unknown;
+  try { data = await response.json(); } catch { return null; }
 
-  try {
-    data = JSON.parse(text);
-  } catch {
-    return null;
-  }
+  const d = data as Record<string, unknown>;
+  if (!response.ok || d?.success === false || d?.error) return null;
 
-  if (!response.ok || data?.success === false || data?.error) {
-    return null;
-  }
-
-  console.log("[linkedin] fresh API raw keys:", Object.keys(data?.data ?? data ?? {}));
+  console.log("[fresh] raw keys:", Object.keys((d?.data as Record<string, unknown>) ?? d ?? {}));
   const normalized = normalizeLinkedInData(data, profileUrl);
   if (normalized) {
-    console.log("[linkedin] normalized exp/edu/skills counts:", normalized.experience.length, normalized.education.length, normalized.skills.length);
+    console.log("[fresh] exp:", normalized.experience.length, "edu:", normalized.education.length, "skills:", normalized.skills.length, "summary:", normalized.summary?.length ?? 0);
   }
   return normalized ? { ...normalized, username, source: "rapidapi-fresh-linkedin" } : null;
 }
@@ -102,90 +180,68 @@ async function fetchLinkedInEnricher(profileUrl: string, signal: AbortSignal) {
   const response = await fetch(
     `https://li-data-scraper.p.rapidapi.com/get-profile-data-by-url?url=${encodeURIComponent(profileUrl)}`,
     {
-      method: "GET",
       headers: {
         "x-rapidapi-key": process.env.RAPIDAPI_KEY!,
         "x-rapidapi-host": "li-data-scraper.p.rapidapi.com",
-        "Content-Type": "application/json",
       },
       signal,
     }
   );
 
-  const text = await response.text();
-  let data: any;
+  let data: unknown;
+  try { data = await response.json(); } catch { return null; }
 
-  try {
-    data = JSON.parse(text);
-  } catch {
-    return null;
+  const d = data as Record<string, unknown>;
+  if (!response.ok || d?.success === false || d?.error || (d?.message as string)?.includes("no longer")) return null;
+
+  const normalized = normalizeLinkedInData(data, profileUrl);
+  if (normalized) {
+    console.log("[enricher] exp:", normalized.experience.length, "edu:", normalized.education.length, "skills:", normalized.skills.length, "summary:", normalized.summary?.length ?? 0);
   }
-
-  if (!response.ok || data?.success === false || data?.error || data?.message?.includes("no longer")) {
-    return null;
-  }
-
-  return normalizeLinkedInData(data, profileUrl);
+  return normalized;
 }
 
-function parseLinkedInHTML(html: string) {
-  // Extract name from title or h1
-  const nameMatch = html.match(/<title>([^|]+)\s*\|\s*LinkedIn/i) || html.match(/<h1[^>]*>([^<]+)/i);
+// HTML fallback — extract real text, don't fabricate fake arrays
+function parseLinkedInHTML(html: string, profileUrl: string) {
+  const nameMatch = html.match(/<title>([^|<]+)\s*[\|–-]\s*LinkedIn/i);
   const name = nameMatch ? nameMatch[1].trim() : "";
 
-  // Extract headline
-  const headlineMatch = html.match(/<div[^>]*class="[^"]*text-body-medium[^"]*"[^>]*>([^<]+)/i);
+  const headlineMatch = html.match(/class="[^"]*text-body-medium[^"]*"[^>]*>([^<]{10,120})</i);
   const headline = headlineMatch ? headlineMatch[1].trim() : "";
 
-  // Extract avatar URL
-  const avatarMatch =
-    html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
-    html.match(/<meta[^>]+name=["']image["'][^>]+content=["']([^"']+)["']/i) ||
-    html.match(/<img[^>]+class=["'][^"']*(?:profile-photo|profile-picture|presence-entity__image)[^"']*["'][^>]+src=["']([^"']+)["']/i) ||
-    html.match(/<img[^>]+src=["']([^"']+)["'][^>]+class=["'][^"']*(?:profile-photo|profile-picture|presence-entity__image)[^"']*["']/i);
+  const avatarMatch = html.match(/property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+    || html.match(/name=["']image["'][^>]+content=["']([^"']+)["']/i);
   const avatar = avatarMatch ? avatarMatch[1] : "";
 
-  // Extract experience count - look for job titles and company patterns
-  const experienceMatches = html.match(/(?:at|@|employed|worked)\s+[A-Z][^<,\n]+(Inc|Corp|Ltd|Company|LLC|Tech|Solutions|Services|Group|Partners|Labs)?/gi) || [];
-  const expMatches = html.match(/experience|employment|work history/gi) || [];
-  const experienceCount = Math.min(Math.max(Math.floor((experienceMatches.length + expMatches.length) / 2), 0), 20);
+  // Extract actual skill names from HTML text
+  const TECH_RE = /\b(Python|JavaScript|TypeScript|Java|C\+\+|C#|React|Next\.js|Node\.js|Vue|Angular|AWS|SQL|HTML|CSS|Git|Docker|Kubernetes|MongoDB|PostgreSQL|GraphQL|Swift|Kotlin|Go|Rust|PHP|Ruby|TensorFlow|PyTorch|Linux|Azure|GCP|Firebase|Figma|Pandas|NumPy|Spark|Kafka|Terraform|Django|FastAPI|Flask|Spring)\b/gi;
+  const skillMatches = [...new Set((html.match(TECH_RE) || []).map(s => s.toLowerCase()))];
+  const skills = skillMatches.map(name => ({ name }));
 
-  // Extract education count and university name - improved patterns
-  const educationMatch = html.match(/([A-Z][a-zA-Z\s]*(?:University|College|Institute|Academy|School|Polytechnic)[a-zA-Z\s]*)/i);
-  const university = educationMatch ? educationMatch[1].trim() : "";
-  const degreeMatches = html.match(/(?:bachelor|master|phd|associate|diploma|certificate|degree|b\.?s\.?|m\.?s\.?|m\.?a\.?|b\.?a\.?)/gi) || [];
-  const eduMatches = html.match(/education|university|college|degree/gi) || [];
-  const educationCount = Math.min(Math.max(Math.floor((degreeMatches.length + eduMatches.length) / 2), university ? 1 : 0), 5);
+  // Extract university name from HTML
+  const uniMatch = html.match(/([A-Z][a-zA-Z\s]{3,40}(?:University|College|Institute|Polytechnic|Academy))/);
+  const university = uniMatch ? uniMatch[1].trim() : "";
 
-  // Extract skills count - more comprehensive tech/business skills
-  const skillPatterns = /(?:Python|JavaScript|Java|C\+\+|React|Node|AWS|SQL|HTML|CSS|TypeScript|Git|Docker|Kubernetes|MongoDB|PostgreSQL|GraphQL|Angular|Vue|Swift|Kotlin|Go|Rust|PHP|Ruby|Scala|Flutter|TensorFlow|PyTorch|Linux|Azure|GCP|Firebase|Redis|Elasticsearch|Jenkins|CI\/CD|Agile|Scrum|Figma|Sketch|Photoshop|Illustrator|Excel|Tableau|PowerBI|Salesforce|HubSpot|SAP|Jira|Confluence|Slack|Notion|Express|Spring|Django|FastAPI|Flask|API|REST|Microservices|Serverless|Dataflow|Spark|Hadoop|Kafka|AWS Lambda|Stripe|Webflow)/gi;
-  const skillMatches = html.match(skillPatterns) || [];
-  const skillsCount = Math.min(skillMatches.length, 30);
+  const education = university ? [normalizeEduItem({ school: university })] : [];
 
-  // Build realistic data objects for scoring
-  const experience = experienceCount > 0
-    ? Array(experienceCount).fill(null).map((_, i) => ({ title: `Job ${i+1}` }))
+  // Extract company/org names — look for "at Company" or "@Company" patterns in visible text
+  const companyRe = /(?:at|@)\s+([A-Z][a-zA-Z0-9\s&.,]{2,40}?)(?:\s*[|·•\n<])/g;
+  const companies: string[] = [];
+  let m;
+  while ((m = companyRe.exec(html)) !== null && companies.length < 6) {
+    const c = m[1].trim();
+    if (c.length > 2 && !c.match(/^(the|a|an|this|my|your)$/i)) companies.push(c);
+  }
+  const experience = companies.length > 0
+    ? companies.map(company => normalizeExpItem({ company, title: "Role", description: `Worked at ${company}` }))
     : [];
 
-  const education = educationCount > 0
-    ? Array(educationCount).fill(null).map((_, i) => ({ school: university || `School ${i+1}` }))
-    : [];
+  // Extract summary/about from meta description
+  const metaDesc = html.match(/property=["']og:description["'][^>]+content=["']([^"']{20,500})["']/i)
+    || html.match(/name=["']description["'][^>]+content=["']([^"']{20,500})["']/i);
+  const summary = metaDesc ? metaDesc[1].trim() : "";
 
-  const skills = skillsCount > 0
-    ? Array(skillsCount).fill(null).map((_, i) => ({ skill: `Skill ${i+1}` }))
-    : [];
-
-  return {
-    fullName: name,
-    firstName: name.split(' ')[0] || "",
-    headline: headline,
-    avatar: avatar,
-    university: university,
-    experience,
-    education,
-    skills,
-    parsed: true
-  };
+  return { fullName: name, firstName: name.split(" ")[0] || "", headline, avatar, summary, university, experience, education, skills, projects: [], volunteer: [], profileUrl, source: "html-fallback" };
 }
 
 export async function POST(req: Request) {
@@ -193,92 +249,63 @@ export async function POST(req: Request) {
     const { profileUrl } = await req.json();
 
     if (!process.env.RAPIDAPI_KEY) {
-      return Response.json(
-        { error: "LinkedIn scraper API key is not configured" },
-        { status: 503 }
-      );
+      return Response.json({ error: "LinkedIn scraper API key is not configured" }, { status: 503 });
     }
 
+    // Try fresh-linkedin-scraper first
     try {
-      const freshController = new AbortController();
-      const freshTimeout = setTimeout(() => freshController.abort(), 8000);
-      const freshProfile = await fetchFreshLinkedInProfile(profileUrl, freshController.signal);
-      clearTimeout(freshTimeout);
-      if (freshProfile) {
-        return Response.json(freshProfile);
-      }
-    } catch (error) {
-      console.warn("Fresh LinkedIn scraper failed, falling back:", error);
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 9000);
+      const result = await fetchFreshLinkedInProfile(profileUrl, ctrl.signal);
+      clearTimeout(t);
+      if (result) return Response.json(result);
+    } catch (e) {
+      console.warn("[fresh] failed:", e);
     }
 
+    // Fallback: li-data-scraper
     try {
-      const enricherController = new AbortController();
-      const enricherTimeout = setTimeout(() => enricherController.abort(), 8000);
-      const enriched = await fetchLinkedInEnricher(profileUrl, enricherController.signal);
-      clearTimeout(enricherTimeout);
-      if (enriched) {
-        return Response.json(enriched);
-      }
-    } catch (error) {
-      console.warn("LinkedIn enricher failed, falling back:", error);
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 9000);
+      const result = await fetchLinkedInEnricher(profileUrl, ctrl.signal);
+      clearTimeout(t);
+      if (result) return Response.json(result);
+    } catch (e) {
+      console.warn("[enricher] failed:", e);
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
-    const response = await fetch(
-      `https://ai-web-scraper1.p.rapidapi.com/`,
-      {
+    // Last resort: raw HTML scrape
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      const res = await fetch(`https://ai-web-scraper1.p.rapidapi.com/`, {
         method: "POST",
         headers: {
           "x-rapidapi-key": process.env.RAPIDAPI_KEY!,
           "x-rapidapi-host": "ai-web-scraper1.p.rapidapi.com",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          url: profileUrl,
-          summary: false
-        }),
-        signal: controller.signal,
+        body: JSON.stringify({ url: profileUrl, summary: false }),
+        signal: ctrl.signal,
+      });
+      clearTimeout(t);
+      const text = await res.text();
+      let data: Record<string, unknown>;
+      try { data = JSON.parse(text); } catch { data = { html: text }; }
+
+      if (data.html || (typeof text === "string" && text.includes("<!DOCTYPE"))) {
+        return Response.json(parseLinkedInHTML((data.html as string) || text, profileUrl));
       }
-    );
-    clearTimeout(timeout);
 
-    const result = await response.text();
-    let data;
-
-    try {
-      data = JSON.parse(result);
-    } catch {
-      // If parsing fails, treat as raw HTML
-      data = { html: result };
+      const normalized = normalizeLinkedInData(data, profileUrl);
+      if (normalized) return Response.json(normalized);
+    } catch (e) {
+      console.warn("[html-scraper] failed:", e);
     }
 
-    // Check if API returned an error
-    if (data.error || data.message?.includes("error")) {
-      return Response.json(
-        { error: data.error || data.message || "Scraper API error" },
-        { status: 503 }
-      );
-    }
-
-    // Parse HTML if that's what we got
-    if (data.html || (typeof data === 'string' && data.includes('<!DOCTYPE'))) {
-      const html = data.html || data;
-      const parsedData = parseLinkedInHTML(html);
-      return Response.json(parsedData);
-    }
-
-    return Response.json({
-      ...data,
-      avatar: getAvatarUrl(data),
-    });
+    return Response.json({ error: "Profile scraping failed" }, { status: 503 });
   } catch (error) {
-    console.error("Scraper API Error:", error);
-
-    return Response.json(
-      { error: "Profile scraping failed" },
-      { status: 500 }
-    );
+    console.error("Scraper error:", error);
+    return Response.json({ error: "Profile scraping failed" }, { status: 500 });
   }
 }
