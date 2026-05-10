@@ -4,6 +4,7 @@ export interface AuraItem {
   positive: boolean
   max: number
   reason: string
+  actionItems?: ProfileChange[]
 }
 
 export interface JobMatch {
@@ -17,6 +18,16 @@ export interface Improvement {
   area: string
   suggestion: string
   potentialGain: number
+  changes?: ProfileChange[]
+}
+
+export interface ProfileChange {
+  area?: string
+  section: string
+  change: string
+  example: string
+  why: string
+  potentialGain?: number
 }
 
 export interface ProfileData {
@@ -31,6 +42,7 @@ export interface ProfileData {
   roasts: string[]
   jobMatches: JobMatch[]
   improvements: Improvement[]
+  profileChanges?: ProfileChange[]
 }
 
 export const DEMO_PROFILE: ProfileData = {
@@ -45,6 +57,7 @@ export const DEMO_PROFILE: ProfileData = {
   roasts: [],
   jobMatches: [],
   improvements: [],
+  profileChanges: [],
 }
 
 export function getDemoProfileById(id: string): ProfileData {
