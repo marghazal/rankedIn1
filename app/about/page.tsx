@@ -20,12 +20,12 @@ export default function AboutPage() {
 
         {/* Plain-language definition */}
         <div className="bg-ri-gray-50 border border-ri-gray-100 rounded-2xl p-6 mb-10">
-          <p className="text-[15px] text-ri-black font-[600] mb-3">Simple definition</p>
-          <p className="text-[15px] text-ri-gray-600 leading-relaxed">
-            <strong className="text-ri-black">Aura</strong> is a composite career score (0 – 2,500) calculated from a person's public LinkedIn profile. It quantifies how strong, complete, and credible that profile appears to a recruiter or hiring manager — turning a subjective impression into a measurable number.
+          <p className="text-[15px] text-ri-black font-[600] mb-3">What does "Aura" mean?</p>
+          <p className="text-[15px] text-ri-gray-600 leading-relaxed mb-3">
+            In everyday language, <em>aura</em> refers to the invisible energy or presence a person gives off — the vibe someone has before they even say a word. When people say someone "has aura," they mean that person commands attention, feels credible, and leaves an impression.
           </p>
-          <p className="text-[15px] text-ri-gray-600 leading-relaxed mt-3">
-            Think of it like a <strong className="text-ri-black">credit score, but for your career</strong>. Just as a credit score aggregates financial behaviour into a single number, Aura aggregates professional signals — experience quality, education prestige, skills depth, project proof, and communication clarity — into one score that anyone can understand instantly.
+          <p className="text-[15px] text-ri-gray-600 leading-relaxed">
+            We borrowed that idea for careers. Your <strong className="text-ri-black">career aura</strong> is the impression your LinkedIn profile makes on a recruiter in the first few seconds — before any conversation happens. We turned that impression into a number (0 – 2,500) so you can measure it, improve it, and compare it.
           </p>
         </div>
 
