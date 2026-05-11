@@ -8,6 +8,20 @@ import { getGeneratedAvatarUrl, getScanLeaderboardEntry } from "@/lib/profile-ut
 import { TierBadge } from "@/components/profile/tier-badge"
 import { isAfterLeaderboardReset } from "@/lib/aura"
 
+function timeAgo(dateStr?: string): string {
+  if (!dateStr) return ""
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return ""
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+  if (seconds < 60) return "just now"
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+
 type TabType = "this-week" | "all-time"
 
 const ALL_UNIVERSITIES = "All Ontario Universities"
@@ -191,8 +205,11 @@ export function LeaderboardView() {
                       {entry.name}
                     </span>
                   </div>
-                  <div className="mt-1.5">
+                  <div className="mt-1.5 flex items-center gap-2">
                     <TierBadge tier={entry.tier} size="sm" />
+                    {timeAgo(entry.created_at) && (
+                      <span className="text-[11px] text-ri-gray-400 font-[500]">{timeAgo(entry.created_at)}</span>
+                    )}
                   </div>
                 </div>
 
@@ -250,6 +267,9 @@ export function LeaderboardView() {
                         >
                           {entry.name}
                         </span>
+                        {timeAgo(entry.created_at) && (
+                          <span className="text-[11px] text-ri-gray-400 font-[500] shrink-0">{timeAgo(entry.created_at)}</span>
+                        )}
                       </div>
 
                       <div className="text-right shrink-0 flex items-center gap-3">

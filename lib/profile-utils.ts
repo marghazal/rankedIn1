@@ -152,5 +152,6 @@ export function getScanLeaderboardEntry(scan: UnknownRecord): LeaderboardEntry |
     delta: 0,
     avatar: getBestAvatarUrl(linkedinData, name, username),
     linkedinUrl: String(scan.linkedinUrl || linkedinData.profileUrl || "#"),
+    created_at: String(scan.created_at || scan.scannedAt || ""),
   }
 }

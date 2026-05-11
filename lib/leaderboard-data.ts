@@ -10,6 +10,7 @@ export interface LeaderboardEntry {
   delta: number
   avatar: string
   linkedinUrl: string
+  created_at?: string
 }
 
 export const LEADERBOARD: LeaderboardEntry[] = []
