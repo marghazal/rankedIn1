@@ -69,6 +69,7 @@ export async function GET(req: Request) {
         delta: 0,
         avatar: '',
         linkedinUrl: scan.linkedin_url,
+        created_at: scan.created_at,
       }))
 
     return Response.json(entries)
